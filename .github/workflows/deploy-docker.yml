@@ -22,21 +22,21 @@ jobs:
         port: 2467
         script: |
           # Останавливаем старый systemd сервис
-          echo "🛑 Stopping old systemd service..."
+          echo "Stopping old systemd service..."
           systemctl stop devops-app 2>/dev/null || echo "Systemd service not running"
           systemctl disable devops-app 2>/dev/null || echo "Systemd service already disabled"
           
           # Логинимся в registry
-          echo "🔐 Logging into GitHub Container Registry..."
+          echo "Logging into GitHub Container Registry..."
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
           # Останавливаем старый контейнер
-          echo "🧹 Cleaning up old containers..."
+          echo "Cleaning up old containers..."
           docker stop devops-app 2>/dev/null || echo "No container to stop"
           docker rm devops-app 2>/dev/null || echo "No container to remove"
           
           # Pull и запуск контейнера
-          echo "📥 Pulling Docker image..."
+          echo "Pulling Docker image..."
           IMAGE_NAME="ghcr.io/${{ github.repository }}:latest"
           docker pull $IMAGE_NAME
           
