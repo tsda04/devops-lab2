@@ -87,7 +87,7 @@ jobs:
           docker logs devops-app --tail 10
           
           # Health check с повторными попытками
-          echo "🔍 Performing health check..."
+          echo "Performing health check..."
           for i in {1..3}; do
             if curl -f http://localhost:8181; then
               echo "Docker deployment completed successfully!"
