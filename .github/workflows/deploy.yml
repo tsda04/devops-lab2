@@ -44,15 +44,6 @@ jobs:
             echo "Docker not installed, skipping container cleanup"
           fi
           
-          # Останавливаем Docker Compose проекты если есть
-          echo "Checking for Docker Compose projects..."
-          if command -v docker-compose &> /dev/null; then
-            find /home -name "docker-compose.yml" -exec dirname {} \; | while read dir; do
-              echo "Stopping Docker Compose in $dir"
-              cd "$dir" && docker-compose down 2>/dev/null || true
-            done
-          fi
-          
           # Создаем директорию
           mkdir -p /home/${{ secrets.SSH_USER }}/devops-lab-tsyganova
           cd /home/${{ secrets.SSH_USER }}/devops-lab-tsyganova
