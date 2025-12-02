@@ -1,38 +1,30 @@
 version: '3.8'
 
-name: devops-lab4
-
 services:
   web:
-    build: .
+    image: ghcr.io/${GITHUB_USER}/devops-lab4:latest
+    restart: always
     ports:
       - "8181:8181"
-    environment:
-      - FLASK_APP=app.py
-      - FLASK_ENV=production
-      - DATABASE_URL=/data/database.db
-    volumes:
-      - app-data:/data
     depends_on:
-      - init-db
-    restart: unless-stopped
+      - db
+    environment:
+      - FLASK_ENV=production
+    volumes:
+      - app_data:/data
     networks:
       - app-network
 
-  init-db:
-    image: alpine:latest
-    command: >
-      sh -c "
-      echo 'Running database initialization...' &&
-      sleep 5 &&
-      echo 'Database initialized'"
+  db:
+    image: nouchka/sqlite3:latest
+    restart: always
     volumes:
-      - app-data:/data
+      - app_data:/data
     networks:
       - app-network
 
 volumes:
-  app-data:
+  app_data:
 
 networks:
   app-network:
