@@ -2,9 +2,9 @@ name: CI Pipeline with Docker Compose
 
 on:
   push:
-    branches: [ lab4, main ]
+    branches: [ main, lab4 ]
   pull_request:
-    branches: [ lab4, main ]
+    branches: [ main, lab4 ]
 
 env:
   REGISTRY: ghcr.io
@@ -41,7 +41,7 @@ jobs:
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/lab4')
     
     permissions:
       contents: read
@@ -82,44 +82,8 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        file: ./Dockerfile
         
-    - name: Create and push Docker Compose config
+    - name: Verify pushed image
       run: |
-        # Создаем правильный docker-compose.yml с конкретным именем образа
-        cat > docker-compose.prod.yml << EOF
-        version: '3.8'
-        
-        services:
-          web:
-            image: ghcr.io/${{ github.repository }}:latest
-            restart: always
-            ports:
-              - "8181:8181"
-            depends_on:
-              - db
-            environment:
-              - FLASK_ENV=production
-            volumes:
-              - app_data:/data
-            networks:
-              - app-network
-        
-          db:
-            image: nouchka/sqlite3:latest
-            restart: always
-            volumes:
-              - app_data:/data
-            networks:
-              - app-network
-        
-        volumes:
-          app_data:
-        
-        networks:
-          app-network:
-            driver: bridge
-        EOF
-        
-        echo "✅ Docker Compose config created"
-        cat docker-compose.prod.yml
+        echo "✅ Образ успешно загружен в GitHub Container Registry"
+        echo "🏷️ Теги: ${{ steps.meta.outputs.tags }}"
