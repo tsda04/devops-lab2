@@ -31,7 +31,7 @@ jobs:
           # Обновляем код
           echo "📥 Обновляем код..."
           git fetch origin
-          git reset --hard origin/lab4
+          git reset --hard origin/main
           
           # Логинимся в GitHub Container Registry
           echo "🔐 Логинимся в GitHub Container Registry..."
