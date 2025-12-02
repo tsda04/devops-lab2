@@ -3,157 +3,82 @@ from flask import Flask, jsonify
 import datetime
 import os
 import sqlite3
-import json
+from pathlib import Path
 
 app = Flask(__name__)
 
-def init_database():
+# Конфигурация базы данных
+DB_PATH = "/data/app.db"
+
+def init_db():
     """Инициализация базы данных"""
-    db_path = os.getenv('DATABASE_URL', '/data/database.db')
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    
-    conn = sqlite3.connect(db_path)
+    Path("/data").mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
-    # Создаем таблицу, если её нет
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS visits (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp TEXT NOT NULL,
-        ip_address TEXT
-    )
+        CREATE TABLE IF NOT EXISTS visits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            ip TEXT
+        )
     ''')
-    
-    # Создаем таблицу для сообщений
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        message TEXT NOT NULL,
-        created_at TEXT NOT NULL
-    )
-    ''')
-    
-    # Добавляем тестовое сообщение, если таблица пустая
-    cursor.execute('SELECT COUNT(*) FROM messages')
-    if cursor.fetchone()[0] == 0:
-        test_messages = [
-            ('Welcome to DevOps Lab 4!', datetime.datetime.now().isoformat()),
-            ('This is a multi-container application', datetime.datetime.now().isoformat()),
-            ('Using Docker Compose with SQLite', datetime.datetime.now().isoformat())
-        ]
-        cursor.executemany('INSERT INTO messages (message, created_at) VALUES (?, ?)', test_messages)
-    
     conn.commit()
     conn.close()
 
-def log_visit(ip_address='unknown'):
+def log_visit():
     """Логирование посещения"""
-    db_path = os.getenv('DATABASE_URL', '/data/database.db')
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
     cursor.execute(
-        'INSERT INTO visits (timestamp, ip_address) VALUES (?, ?)',
-        (datetime.datetime.now().isoformat(), ip_address)
+        "INSERT INTO visits (timestamp, ip) VALUES (?, ?)",
+        (datetime.datetime.now().isoformat(), "0.0.0.0")
     )
-    
     conn.commit()
-    
-    # Получаем общее количество посещений
-    cursor.execute('SELECT COUNT(*) FROM visits')
-    total_visits = cursor.fetchone()[0]
-    
     conn.close()
-    return total_visits
 
-def get_messages():
-    """Получение сообщений из базы данных"""
-    db_path = os.getenv('DATABASE_URL', '/data/database.db')
-    conn = sqlite3.connect(db_path)
+def get_visit_count():
+    """Получение количества посещений"""
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
-    cursor.execute('SELECT message, created_at FROM messages ORDER BY created_at DESC LIMIT 10')
-    messages = cursor.fetchall()
-    
+    cursor.execute("SELECT COUNT(*) FROM visits")
+    count = cursor.fetchone()[0]
     conn.close()
-    return messages
+    return count
 
 @app.route('/')
 def health():
-    # Инициализируем БД при первом запросе
-    init_database()
-    
     # Логируем посещение
-    ip_address = request.remote_addr if hasattr(request, 'remote_addr') else 'unknown'
-    total_visits = log_visit(ip_address)
+    log_visit()
     
-    # Получаем сообщения из БД
-    messages = get_messages()
+    # Получаем статистику
+    visit_count = get_visit_count()
     
-    return {
+    return jsonify({
         'status': 'healthy',
         'timestamp': datetime.datetime.now().isoformat(),
-        'service': 'DevOps Lab 4 - Multi-container App',
-        'database': 'SQLite',
-        'container_type': 'Docker Compose',
-        'total_visits': total_visits,
-        'current_ip': ip_address,
-        'messages': [
-            {'text': msg[0], 'created_at': msg[1]} 
-            for msg in messages
-        ],
-        'endpoints': {
-            'health': '/',
-            'visits': '/visits',
-            'add_message': '/add/<message>'
-        }
-    }
+        'visits': visit_count,
+        'message': 'Docker Compose работает!',
+        'db_connected': True
+    })
 
 @app.route('/visits')
 def visits():
-    """Статистика посещений"""
-    db_path = os.getenv('DATABASE_URL', '/data/database.db')
-    conn = sqlite3.connect(db_path)
+    """Получить все посещения"""
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
-    cursor.execute('SELECT COUNT(*) FROM visits')
-    total_visits = cursor.fetchone()[0]
-    
-    cursor.execute('SELECT timestamp, ip_address FROM visits ORDER BY timestamp DESC LIMIT 10')
-    recent_visits = cursor.fetchall()
-    
+    cursor.execute("SELECT * FROM visits ORDER BY timestamp DESC LIMIT 10")
+    visits_data = cursor.fetchall()
     conn.close()
     
-    return {
-        'total_visits': total_visits,
+    return jsonify({
+        'total_visits': get_visit_count(),
         'recent_visits': [
-            {'timestamp': visit[0], 'ip_address': visit[1]}
-            for visit in recent_visits
+            {'id': v[0], 'timestamp': v[1], 'ip': v[2]} 
+            for v in visits_data
         ]
-    }
-
-@app.route('/add/<message>')
-def add_message(message):
-    """Добавление нового сообщения"""
-    db_path = os.getenv('DATABASE_URL', '/data/database.db')
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    
-    cursor.execute(
-        'INSERT INTO messages (message, created_at) VALUES (?, ?)',
-        (message, datetime.datetime.now().isoformat())
-    )
-    
-    conn.commit()
-    conn.close()
-    
-    return {
-        'status': 'message_added',
-        'message': message,
-        'timestamp': datetime.datetime.now().isoformat()
-    }
+    })
 
 if __name__ == '__main__':
-    # Инициализируем БД при запуске приложения
-    init_database()
+    # Инициализируем БД при запуске
+    init_db()
     app.run(host='0.0.0.0', port=8181, debug=False)
