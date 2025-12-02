@@ -1,11 +1,9 @@
 name: CD Pipeline with Docker Compose
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
   push:
-    branches: [ lab4 ]
+    branches: [ main, lab4 ]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -25,13 +23,49 @@ jobs:
         script: |
           echo "🚀 Начинаем деплой с Docker Compose..."
           
-          # Переходим в директорию проекта
+          # Создаем/переходим в директорию проекта
+          echo "📁 Настраиваем рабочую директорию..."
+          mkdir -p /home/${{ secrets.SSH_USER }}/devops-lab4
           cd /home/${{ secrets.SSH_USER }}/devops-lab4
           
-          # Обновляем код
-          echo "📥 Обновляем код..."
-          git fetch origin
-          git reset --hard origin/main
+          # Копируем docker-compose файл с GitHub
+          echo "📋 Копируем docker-compose файл..."
+          cat > docker-compose.yml << 'EOF'
+          version: '3.8'
+          
+          services:
+            web:
+              image: ghcr.io/${{ github.repository }}:latest
+              restart: always
+              ports:
+                - "8181:8181"
+              depends_on:
+                - db
+              environment:
+                - FLASK_ENV=production
+              volumes:
+                - app_data:/data
+              networks:
+                - app-network
+          
+            db:
+              image: nouchka/sqlite3:latest
+              restart: always
+              volumes:
+                - app_data:/data
+              networks:
+                - app-network
+          
+          volumes:
+            app_data:
+          
+          networks:
+            app-network:
+              driver: bridge
+          EOF
+          
+          echo "📄 Содержимое docker-compose.yml:"
+          cat docker-compose.yml
           
           # Логинимся в GitHub Container Registry
           echo "🔐 Логинимся в GitHub Container Registry..."
@@ -41,37 +75,67 @@ jobs:
           echo "🧹 Очищаем старые контейнеры..."
           docker-compose down 2>/dev/null || echo "Контейнеров для остановки нет"
           
+          # Удаляем старые образы
+          echo "🗑️ Удаляем старые образы..."
+          docker rmi ghcr.io/${{ github.repository }}:latest 2>/dev/null || echo "Образов для удаления нет"
+          
           # Подтягиваем свежий образ
           echo "📦 Загружаем свежий образ..."
           docker pull ghcr.io/${{ github.repository }}:latest
           
           # Запускаем приложение через Docker Compose
           echo "🚀 Запускаем Docker Compose..."
-          GITHUB_USER=${{ github.repository_owner }} docker-compose up -d
+          docker-compose up -d
           
           # Ждем запуска
           echo "⏳ Ждем запуска приложения..."
-          sleep 10
+          sleep 15
           
           # Проверяем статус
           echo "📊 Статус контейнеров:"
           docker-compose ps
           
+          echo "📝 Логи контейнера web:"
+          docker-compose logs --tail=10 web
+          
+          echo "📝 Логи контейнера db:"
+          docker-compose logs --tail=5 db
+          
           # Health check
           echo "🔍 Проверяем работоспособность..."
-          for i in {1..5}; do
+          for i in {1..10}; do
+            echo "Попытка $i/10..."
             if curl -f http://localhost:8181; then
+              echo ""
               echo "✅ Приложение успешно запущено!"
               echo "🌐 Доступно по адресу: http://app.tsyganova.course.prafdin.ru"
               echo "📊 Статистика посещений: http://app.tsyganova.course.prafdin.ru/visits"
+              echo ""
+              echo "📋 Информация о контейнерах:"
+              echo "1. Web контейнер (Flask): $(docker-compose ps web | grep Up)"
+              echo "2. DB контейнер (SQLite): $(docker-compose ps db | grep Up)"
+              echo "3. Сеть: $(docker network ls | grep devops-lab4)"
+              echo "4. Volume: $(docker volume ls | grep devops-lab4)"
               exit 0
             else
-              echo "Попытка $i/5 не удалась, ждем 5 секунд..."
-              sleep 5
+              echo "Попытка $i не удалась, ждем 3 секунды..."
+              sleep 3
             fi
           done
           
-          echo "❌ Приложение не запустилось"
-          echo "Логи контейнеров:"
+          echo "❌ Приложение не запустилось после 10 попыток"
+          echo ""
+          echo "🔍 Диагностика:"
+          echo "1. Проверяем, запущены ли контейнеры:"
+          docker ps -a | grep devops-lab4
+          echo ""
+          echo "2. Проверяем логи:"
           docker-compose logs
+          echo ""
+          echo "3. Проверяем сеть:"
+          docker network inspect devops-lab4_app-network 2>/dev/null || echo "Сеть не найдена"
+          echo ""
+          echo "4. Проверяем volume:"
+          docker volume inspect devops-lab4_app-data 2>/dev/null || echo "Volume не найден"
+          
           exit 1
