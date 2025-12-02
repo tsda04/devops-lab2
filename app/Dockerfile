@@ -6,10 +6,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py .
+COPY db.py .
 
-ENV FLASK_APP=app.py
-ENV FLASK_ENV=production
+# Персистентные данные
+VOLUME /data
 
-EXPOSE 5000
+EXPOSE 8181
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+CMD ["sh", "-c", "python db.py && python app.py"]
