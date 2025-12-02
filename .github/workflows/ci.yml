@@ -82,8 +82,44 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        file: ./Dockerfile
         
-    - name: Verify pushed image
+    - name: Create and push Docker Compose config
       run: |
-        echo "✅ Образ успешно загружен в GitHub Container Registry"
-        echo "🏷️ Теги: ${{ steps.meta.outputs.tags }}"
+        # Создаем правильный docker-compose.yml с конкретным именем образа
+        cat > docker-compose.prod.yml << EOF
+        version: '3.8'
+        
+        services:
+          web:
+            image: ghcr.io/${{ github.repository }}:latest
+            restart: always
+            ports:
+              - "8181:8181"
+            depends_on:
+              - db
+            environment:
+              - FLASK_ENV=production
+            volumes:
+              - app_data:/data
+            networks:
+              - app-network
+        
+          db:
+            image: nouchka/sqlite3:latest
+            restart: always
+            volumes:
+              - app_data:/data
+            networks:
+              - app-network
+        
+        volumes:
+          app_data:
+        
+        networks:
+          app-network:
+            driver: bridge
+        EOF
+        
+        echo "✅ Docker Compose config created"
+        cat docker-compose.prod.yml
