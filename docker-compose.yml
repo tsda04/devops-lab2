@@ -2,14 +2,13 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:13-alpine
+    image: postgres:15-alpine  # Используем ту же версию что и раньше
     environment:
       POSTGRES_DB: lab4db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - app-network
     healthcheck:
@@ -17,10 +16,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   web:
     build: .
-    image: ghcr.io/${{ github.repository }}:latest
+    image: ghcr.io/tsda04/devops-lab4:latest
     environment:
       DB_HOST: db
       DB_PORT: 5432
