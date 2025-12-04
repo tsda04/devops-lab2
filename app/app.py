@@ -13,7 +13,7 @@ def index():
     row = cur.fetchone()
     conn.close()
 
-    return jsonify({"db_messa2124ge": row[0] if row else "empty"})
+    return jsonify({"db_message": row[0] if row else "empty"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8181)
