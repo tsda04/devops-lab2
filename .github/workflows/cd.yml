@@ -8,29 +8,34 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Deploy to server
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: course.prafdin.ru
-        username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        port: 2467
-        script: |
-          cd ~/devops-lab4
-          
-          # Обновляем код
-          git pull origin main
-          
-          # Логинимся в реестр
-          echo "${{ secrets.GITHUBTOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          
-          # Останавливаем старые контейнеры
-          docker-compose down
-          
-          # Запускаем новые
-          docker-compose pull --no-parallel
-          docker image prune -f
-          docker-compose up -d --force-recreate
-                  
-          echo "Deployment completed!"
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: course.prafdin.ru
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 2467
+          script: |
+            cd ~/devops-lab4
+
+            echo "Pulling latest code..."
+            git pull origin main
+
+            echo "Logging into GHCR..."
+            echo "${{ secrets.GITHUBTOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            echo "Stopping old containers..."
+            docker compose down
+
+            echo "Pulling new images..."
+            docker compose pull --quiet-pull
+
+            echo "Cleaning old images..."
+            docker image prune -f
+
+            echo "Starting containers..."
+            docker compose up -d --force-recreate
+
+            echo "Deployment completed!"
