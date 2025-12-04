@@ -29,7 +29,8 @@ jobs:
           docker-compose down
           
           # Запускаем новые
-          docker-compose pull
-          docker-compose up -d
-          
+          docker-compose pull --no-parallel
+          docker image prune -f
+          docker-compose up -d --force-recreate
+                  
           echo "Deployment completed!"
