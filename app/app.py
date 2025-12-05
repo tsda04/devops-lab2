@@ -12,7 +12,7 @@ HTML_TEMPLATE = """
     <title>Users1</title>
 </head>
 <body>
-    <h1>Users12345</h1>
+    <h1>Users12345test</h1>
     <ul id="users-list">
         {% for user in users %}
         <li>{{ user['id'] }} - {{ user['name'] }}</li>
